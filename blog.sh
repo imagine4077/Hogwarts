@@ -1,5 +1,8 @@
 #!/bin/bash
-
+if [ $# -ne 1 ]; then
+	echo "FORMAT: ./blog.sh ARTICAL_NAME"
+	exit
+fi
 cd ~/Documents/CODE/GIT_launch_platform/Hogwarts/_posts
 time=$(date +%Y-%m-%d)
 title=$time-$1.md
@@ -21,3 +24,6 @@ ls
 cd ..
 git add .
 git commit -m $title
+#xdg-open https://github.com/imagine4077/Hogwarts/tree/gh-pages/_posts/$title
+gnome-www-browser https://github.com/imagine4077/Hogwarts/tree/gh-pages/_posts/$title
+
