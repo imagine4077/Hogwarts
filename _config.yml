@@ -92,10 +92,10 @@ follow:
 #Links
 customLinks:
   - item:
-    - text: MicroBlog
+    - text: My MicroBlog
       url: http://weibo.com/mygroups?gid=211007210000603912&wvr=6&leftnav=1
-#    - text: Jekyll
-#      url: http://jekyllrb.com
+    - text: My Github
+      url: https://github.com/imagine4077
 #    - text: Jekyll Theme
 #      url: http://www.zhanxin.info/themes.html
     message: Friends
