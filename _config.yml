@@ -116,7 +116,7 @@ disqus:
 #################################### global configure #######################################
 
 username: imagine4077
-baseurl: /blog
+baseurl: /Hogwarts
 markdown: redcarpet
 safe: false
 highlighter: pygments
