@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd ~/Documents/CODE/GIT_launch_platform/blog/_posts
+cd ~/Documents/CODE/GIT_launch_platform/Hogwarts/_posts
 time=$(date +%Y-%m-%d)
 title=$time-$1.md
 touch $title
