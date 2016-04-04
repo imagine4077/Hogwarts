@@ -1,4 +1,4 @@
-﻿---
+---
 layout: post
 title: Linux_Core_Dump
 date: 2016-04-05 00:04:10
