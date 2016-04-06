@@ -8,6 +8,7 @@ comments: true
 ---
 
 
+转自：[http://www.cnblogs.com/ayanmw/p/3477248.html](http://www.cnblogs.com/ayanmw/p/3477248.html)  
 C中格式字符串printf()的一般形式为： %[标志][输出最小宽度][.精度][长度]类型， 其中方括号[]中的项为可选项。各项的意义介绍如下：    
 #### 1.类型：
 
