@@ -1,6 +1,6 @@
 ﻿---
 layout: post
-title: C
+title: C_printf_format
 date: 2016-04-06 22:46:33
 tags: 
 category: 
