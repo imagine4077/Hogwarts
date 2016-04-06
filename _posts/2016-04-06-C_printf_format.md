@@ -1,9 +1,9 @@
-﻿---
+---
 layout: post
-title: C_printf_format
+title: C和C++_printf_format
 date: 2016-04-06 22:46:33
-tags: 
-category: 
+tags: C
+category: C
 comments: true
 ---
 
