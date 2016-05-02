@@ -1,4 +1,4 @@
----
+﻿---
 layout: post
 title: 连接器（Netlink_Connector）及其应用
 date: 2016-05-02 22:46:45
@@ -27,32 +27,44 @@ struct cn_msg
 int cn_add_callback(struct cb_id *id, char *name, void (*callback) (void *));
 void cn_del_callback(struct cb_id *id);
 void cn_netlink_send(struct cn_msg *msg, u32 __group, int gfp_mask);</pre></div><p>结构 cb_id 是连接器实例的标识 ID，它用于确定 netlink 消息与回调函数的对应关系。当连接器接收到标识 ID 为 {idx，val} 的 netlink 消息时，注册的回调函数 void (*callback) (void *) 将被调用。该回调函数的参数为结构 struct cn_msg 的指针。</p><p>接口函数 cn_add_callback 用于向连接器注册新的连接器实例以及相应的回调函数，参数 id 指定注册的标识 ID，参数 name 指定连接器回调函数的符号名，参数 callback 为回调函数。</p><p>接口函数 cn_del_callback 用于卸载回调函数，参数 id 为注册函数 cn_add_callback 注册的连接器标识 ID。</p><p>接口函数 cn_netlink_send 用于向给定的组发送消息，它可以在任何上下文安全地调用。但是，如果内存不足，可能会发送失败。在具体的连接器实例中，该函数用于向用户态发送 netlink 消息。</p><p>参数 msg 为发送的 netlink 消息的消息头。参数 __group 为接收消息的组，如果它为 0，那么连接器将搜索所有注册的连接器用户，最终将发送给用户 ID 与在 msg 中的 ID 相同的组，但如果 __group 不为 0，消息将发送给 __group 指定的组。参数 gfp_mask 指定页分配标志。</p><p>注意：当注册新的回调函数时，连接器将指定它的组为 id.idx。</p><p>cn_msg 是连接器定义的消息头，字段 seq 和 ack 用于确保消息的可靠传输，刚才已经提到，netlink 在内存紧张的情况下可能丢失消息，因此该头使用顺序号和响应号来满足要求可靠传输用户的需求。当发送消息时，用户需要设置独一无二的顺序号和随机的响应号，顺序号也应当设置到 nlmsghdr-&gt;nlmsg_seq。注意 nlmsghdr 是类型为结构 struct nlmsghdr 的变量，它用于设置或保存 netlink 的消息头。每发送一个消息，顺序号应当加 1，如果需要发送响应消息，那么响应消息
-的顺序号应当与被响应的消息的顺序号相同，同时响应消息的响应号应当为被响应消息的顺序号加1。如果接收到的消息的顺序号不是期望的顺序号，那表明该消息是一个新的消息，如果接收到的消息的顺序号是期望的顺序号，但它的响应号不等于上次发送消息的顺序号加1，那么它也是新消息。</p><div  ><hr></div><p ><a href="#ibm-pcon"  >回页首</a></p></h5><h2 id="N10066">三、用户态如何使用连接器</h2><p>内核 2.6.14 对 netlink 套接字有新的实现，它缺省情况下不允许用户态应用发送给组号非 1 的netlink 组，因此用户态应用要想使用非1的组，必须先加入到该组，这可以通过如下代码实现：</p><h5 id="N1006F"><div  ><pre  >#ifndef  SOL_NETLINK
-#define  SOL_NETLINK 270
-#endif
-#ifndef  NETLINK_DROP_MEMBERSHIP
-#define  NETLINK_DROP_MEMBERSHIP 0
-#endif
-#ifndef  NETLINK_ADD_MEMBERSHIP
-#define  NETLINK_ADD_MEMBERSHIP 1
-#endif
-int group = 5;
-s = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_CONNECTOR);
-l_local.nl_family = AF_NETLINK;
-l_local.nl_groups = group;
-l_local.nl_pid = getpid();
-if (bind(s, (struct sockaddr *)&amp;l_local, sizeof(struct sockaddr_nl)) == -1) {
-	perror("bind");
-	close(s);
-	return -1;
-}
-setsockopt(s, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &amp;group, sizeof(group));</pre></div><p>在不需要使用该连接器时使用语句</p></h5><h5 id="N10078"><div  ><pre  >setsockopt(s, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, &amp;group, sizeof(group));</pre></div><p>退出NETLINK_CONNECTOR的group组。</p><p>宏 SOL_NETLINK、NETLINK_ADD_MEMBERSHIP 和 NETLINK_DROP_MEMBERSHIP 在旧的系统中并没有定义，因此需要用户显式定义。</p><p>内核 2.6.14 的 netlink 代码只允许选择一个小于或等于最大组号的组，对于连接器，最大的组号为CN_NETLINK_USERS + 0xf， 即16，因此如果想使用更大的组号，必须修改CN_NETLINK_USERS 到该大值。增加的 0xf 个号码供非内核态用户使用。因此，组 0xffffffff目前不能使用。</p><div  ><hr></div><p ><a href="#ibm-pcon"  >回页首</a></p></h5><h2 id="N10083">四、进程事件连接器的使用</h2><p>进程事件连接器是连接器的第一个使用实例，它通过连接器来报告进程相关的事件，包括进程 fork、exec、exit 以及进程用户 ID 与组 ID 的变化。如果用户想监视系统的进程事件，就可以编一个应用程序通过 netlink 套接字来获取进程事件信息。下面将详细描述如何编写一个进程事件监视程序。</p><h5 id="N1008C"><div  ><pre  >#include &lt;sys/types.h&gt;
-#include &lt;sys/socket.h&gt;
-#include &lt;signal.h&gt;
-#include &lt;linux/netlink.h&gt;
-#include &lt;linux/connector.h&gt;
-#define _LINUX_TIME_H
-#include &lt;linux/cn_proc.h&gt;</pre></div><p>上面这些 include 语句包含了进程监视程序需要的必要头文件，其中头文件 sys/types.h 和sys/socket.h 是编写套接字程序所必须的，头文件 signal.h 包含了信号处理相关的函数，本程序需要信号处理，因此需要包含该头文件。其余的三个头文件是内核相关的头文件，头文件linux/netlink.h 是编写netlink套接字程序所必须的，头文件 linux/connector.h 包含了内核实现的连接器的一些结构和宏，使用连接器监视系统事件的程序必须包含它，头文件 linux/cn_proc.h 则定义了进程事件连接器的一些结构和宏，应用程序需要包含该头文件以便正确分析进程事件。注意，在包含头文件 linux/cn_proc.h 之前定义了宏_LINUX_TIME_H，因为在用户态应用中包含linux/time.h会导致结构struct timespec 定义冲突，所以该宏避免了头文件linux/cn_proc.h包含linux/time.h。</p></h5><h5 id="N10095"><div  ><pre  >#define  MAX_MSGSIZE 256
+的顺序号应当与被响应的消息的顺序号相同，同时响应消息的响应号应当为被响应消息的顺序号加1。如果接收到的消息的顺序号不是期望的顺序号，那表明该消息是一个新的消息，如果接收到的消息的顺序号是期望的顺序号，但它的响应号不等于上次发送消息的顺序号加1，那么它也是新消息。</p><div  ><hr></div><p ><a href="#ibm-pcon"  >回页首</a></p></h5><h2 id="N10066">三、用户态如何使用连接器</h2><p>内核 2.6.14 对 netlink 套接字有新的实现，它缺省情况下不允许用户态应用发送给组号非 1 的netlink 组，因此用户态应用要想使用非1的组，必须先加入到该组，这可以通过如下代码实现：</p><h5 id="N1006F"><div>
+<pre>
+ #ifndef  SOL_NETLINK
+ #define  SOL_NETLINK 270
+ #endif
+ #ifndef  NETLINK_DROP_MEMBERSHIP
+ #define  NETLINK_DROP_MEMBERSHIP 0
+ #endif
+ #ifndef  NETLINK_ADD_MEMBERSHIP
+ #define  NETLINK_ADD_MEMBERSHIP 1
+ #endif
+ int group = 5;
+ s = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_CONNECTOR);
+ l_local.nl_family = AF_NETLINK;
+ l_local.nl_groups = group;
+ l_local.nl_pid = getpid();
+ if (bind(s, (struct sockaddr *)&amp;l_local, sizeof(struct   sockaddr_nl)) == -1) {
+ 	perror("bind");
+ 	close(s);
+ 	return -1;
+ }
+ setsockopt(s, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &amp;group,   sizeof(group));
+
+</pre>
+
+</div><p>在不需要使用该连接器时使用语句</p></h5><h5 id="N10078"><div  ><pre  >setsockopt(s, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, &amp;group, sizeof(group));</pre></div><p>退出NETLINK_CONNECTOR的group组。</p><p>宏 SOL_NETLINK、NETLINK_ADD_MEMBERSHIP 和 NETLINK_DROP_MEMBERSHIP 在旧的系统中并没有定义，因此需要用户显式定义。</p><p>内核 2.6.14 的 netlink 代码只允许选择一个小于或等于最大组号的组，对于连接器，最大的组号为CN_NETLINK_USERS + 0xf， 即16，因此如果想使用更大的组号，必须修改CN_NETLINK_USERS 到该大值。增加的 0xf 个号码供非内核态用户使用。因此，组 0xffffffff目前不能使用。</p><div  ><hr></div><p ><a href="#ibm-pcon"  >回页首</a></p></h5><h2 id="N10083">四、进程事件连接器的使用</h2><p>进程事件连接器是连接器的第一个使用实例，它通过连接器来报告进程相关的事件，包括进程 fork、exec、exit 以及进程用户 ID 与组 ID 的变化。如果用户想监视系统的进程事件，就可以编一个应用程序通过 netlink 套接字来获取进程事件信息。下面将详细描述如何编写一个进程事件监视程序。</p><h5 id="N1008C"><div  >
+
+<pre>
+ #include &lt;sys/types.h&gt;
+ #include &lt;sys/socket.h&gt;
+ #include &lt;signal.h&gt;
+ #include &lt;linux/netlink.h&gt;
+ #include &lt;linux/connector.h&gt;
+ #define _LINUX_TIME_H
+ #include &lt;linux/cn_proc.h&gt;
+ </pre>
+ 
+ </div><p>上面这些 include 语句包含了进程监视程序需要的必要头文件，其中头文件 sys/types.h 和sys/socket.h 是编写套接字程序所必须的，头文件 signal.h 包含了信号处理相关的函数，本程序需要信号处理，因此需要包含该头文件。其余的三个头文件是内核相关的头文件，头文件linux/netlink.h 是编写netlink套接字程序所必须的，头文件 linux/connector.h 包含了内核实现的连接器的一些结构和宏，使用连接器监视系统事件的程序必须包含它，头文件 linux/cn_proc.h 则定义了进程事件连接器的一些结构和宏，应用程序需要包含该头文件以便正确分析进程事件。注意，在包含头文件 linux/cn_proc.h 之前定义了宏_LINUX_TIME_H，因为在用户态应用中包含linux/time.h会导致结构struct timespec 定义冲突，所以该宏避免了头文件linux/cn_proc.h包含linux/time.h。</p></h5><h5 id="N10095"><div  ><pre  >#define  MAX_MSGSIZE 256
 #ifndef  SOL_NETLINK
 #define  SOL_NETLINK 270
 #endif</pre></div><p>旧的系统并没有定义 SOL_NETLINK，因此程序必须处理这种情况。宏 MAX_MSGSIZE 定义了最大的进程事件消息大小，它用于指定接收进程事件消息的缓存的大小，这里只是很粗略的大小，实际的消息比这小。</p></h5><h5 id="N1009E"><div  ><pre  >int sd;
@@ -229,17 +241,23 @@ tid:2878, pid:2878
 process event: exit
 tid:2878, pid:2878, exit code:0
 process event: turn off process event listening.
-[root@localhost yangyi]#</pre></div><div  ><hr></div><p ><a href="#ibm-pcon"  >回页首</a></p></h5><h2 id="N10125">五、如何实现一个新的连接器实例</h2><p>要想实现一个新的连接器，必须首先定义个新的连接器标识，目前最新的内核包括两个连接器实例，一个是进程事件连接器，另一个为 CIFS 连接器，因此新的连接器标识必须不同于现有的任何一个连接器标识。例如，用户可以使用如下语句来定义一个新的连接器标识：</p><h5 id="N1012E"><div  ><pre  >#define CN_IDX_NEW 3
-#define CN_VAL_NEW 1</pre></div><p>当然连接器必须在内核实现，因此需要通过内核模块来定义相应的回调函数并在初始化代码中注册该回调函数，回调函数实际上用于处理发送给该连接器的消息。该模块也必须实现消息发送函数供其它内核子系统方便使用该连接器。下面是作者编写的一个文件系统事件连接器的实现代码，该代码根据进程事件连接器（drivers/connector/cn_proc.c）编写而成。</p><p>头文件 include/linux/cn_fs.h 定义了文件系统事件处理的数据结构、open 消息发送函数声明以及一些相关的宏定义，结构 struct fs_event 定义了文件系统事件连接器消息结构。</p></h5><h5 id="N10139"><div  ><pre  >#ifndef CN_FS_H
-#define CN_FS_H
-#include &lt;linux/types.h&gt;
-#include &lt;linux/time.h&gt;
-#include &lt;linux/connector.h&gt;
-#define TASK_NAME_LEN 16
-#define FILE_NAME_LEN 256
-#define CN_IDX_FS 3
-#define CN_VAL_FS 1
-/*
+[root@localhost yangyi]#</pre></div><div  ><hr></div><p ><a href="#ibm-pcon"  >回页首</a></p></h5><h2 id="N10125">五、如何实现一个新的连接器实例</h2><p>要想实现一个新的连接器，必须首先定义个新的连接器标识，目前最新的内核包括两个连接器实例，一个是进程事件连接器，另一个为 CIFS 连接器，因此新的连接器标识必须不同于现有的任何一个连接器标识。例如，用户可以使用如下语句来定义一个新的连接器标识：</p><h5 id="N1012E"><div  >
+<pre  >#define CN_IDX_NEW 3
+#define CN_VAL_NEW 1
+</pre>
+</div><p>当然连接器必须在内核实现，因此需要通过内核模块来定义相应的回调函数并在初始化代码中注册该回调函数，回调函数实际上用于处理发送给该连接器的消息。该模块也必须实现消息发送函数供其它内核子系统方便使用该连接器。下面是作者编写的一个文件系统事件连接器的实现代码，该代码根据进程事件连接器（drivers/connector/cn_proc.c）编写而成。</p><p>头文件 include/linux/cn_fs.h 定义了文件系统事件处理的数据结构、open 消息发送函数声明以及一些相关的宏定义，结构 struct fs_event 定义了文件系统事件连接器消息结构。</p></h5><h5 id="N10139"><div>
+
+<pre>
+ #ifndef CN_FS_H
+ #define CN_FS_H 
+ #include &lt;linux/types.h&gt; 
+ #include &lt;linux/time.h&gt; 
+ #include &lt;linux/connector.h&gt; 
+ #define TASK_NAME_LEN 16 
+ #define FILE_NAME_LEN 256 
+ #define CN_IDX_FS 3 
+ #define CN_VAL_FS 1 
+ /*
  * Userspace sends this enum to register with the kernel that it is listening
  * for events on the connector.
  */
@@ -267,20 +285,28 @@ struct fs_event {
 		} read;
 	} event_data;
 };
-#ifdef __KERNEL__
-#ifdef CONFIG_FS_EVENTS
-void fs_open_connector(struct dentry * dentryp);
-#else
-static void fs_open_connector(struct dentry * dentryp)
-{}
-#endif	/* CONFIG_FS_EVENTS */
-#endif	/* __KERNEL__ */
-#endif	/* CN_FS_H */</pre></div><p>下面文件 drivers/connector/cn_fs.c 是文件系统连接器的实现代码。</p></h5><h5 id="N10142"><div  ><pre  >#include &lt;linux/module.h&gt;
-#include &lt;linux/kernel.h&gt;
-#include &lt;linux/init.h&gt;
-#include &lt;linux/fs.h&gt;
-#include &lt;linux/cn_fs.h&gt;
-#include &lt;asm/atomic.h&gt;</pre></div><p>这些是必要的内核头文件。</p></h5><h5 id="N1014B"><div  ><pre  >#define CN_FS_MSG_SIZE (sizeof(struct cn_msg) + sizeof(struct fs_event))</pre></div><p>该宏定义了文件系统消息的大小。</p></h5><h5 id="N10154"><div  ><pre  >static atomic_t fs_event_listeners = ATOMIC_INIT(0);</pre></div><p>该变量用于控制文件系统 open 事件的报告，初始化时设置为 0，即不报告 open 事件。用户态应用可以通过向文件系统连接器发送控制消息来打开和关闭 open 事件的报告。</p><p>static struct cb_id cn_fs_event_id = { CN_IDX_FS, CN_VAL_FS };
+ 
+ #ifdef __KERNEL__ 
+
+ #ifdef CONFIG_FS_EVENTS 
+ void fs_open_connector(struct dentry * dentryp); 
+
+ #else 
+
+ static void fs_open_connector(struct dentry * dentryp) 
+
+ {} 
+ #endif	/* CONFIG_FS_EVENTS */ 
+ #endif	/* __KERNEL__ */ 
+ #endif	/* CN_FS_H */ 
+ </pre>
+ </div><p>下面文件 drivers/connector/cn_fs.c 是文件系统连接器的实现代码。</p></h5><h5 id="N10142"><div  ><pre  >#include &lt;linux/module.h&gt;
+ #include &lt;linux/kernel.h&gt; 
+ #include &lt;linux/init.h&gt; 
+ #include &lt;linux/fs.h&gt; 
+ #include &lt;linux/cn_fs.h&gt; 
+ #include &lt;asm/atomic.h&gt; 
+</pre></div><p>这些是必要的内核头文件。</p></h5><h5 id="N1014B"><div  ><pre  >#define CN_FS_MSG_SIZE (sizeof(struct cn_msg) + sizeof(struct fs_event))</pre></div><p>该宏定义了文件系统消息的大小。</p></h5><h5 id="N10154"><div  ><pre  >static atomic_t fs_event_listeners = ATOMIC_INIT(0);</pre></div><p>该变量用于控制文件系统 open 事件的报告，初始化时设置为 0，即不报告 open 事件。用户态应用可以通过向文件系统连接器发送控制消息来打开和关闭 open 事件的报告。</p><p>static struct cb_id cn_fs_event_id = { CN_IDX_FS, CN_VAL_FS };
 这是连接器的唯一标识，连接器需要它来找到对应的连接器实例。</p></h5><h5 id="N1015F"><div  ><pre  >/* fs_event_counts is used as the sequence number of the netlink message */
 static DEFINE_PER_CPU(__u32, fs_event_counts) = { 0 };</pre></div><p>该 PER_CPU 变量用于统计总共的文件系统事件，并通过它来获得连接器消息的顺序号。</p></h5><h5 id="N10168"><div  ><pre  >static inline void get_seq(__u32 *ts, int *cpu)
 {
