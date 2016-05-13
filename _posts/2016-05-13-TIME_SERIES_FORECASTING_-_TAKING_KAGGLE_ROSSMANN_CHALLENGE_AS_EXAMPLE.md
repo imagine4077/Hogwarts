@@ -27,7 +27,7 @@ reposted from: [http://www.elasticmining.com/post/2016-01-02/time-series-forecas
 <p>First I recommend you learn ARIMA, that would help you learn traditional ways tackling time series and those knowledges also useful to modern models. The classic ARIMA is a combination of Autoregression, difference of lag values, and Moving Average Model. They respectively accounts for response dynamics, non-stationary of the series, the noise dynamics. And what making it distinct from simple regression model is that they are capable to learn dynamic pattern of values along the time.
 I use the great Python package <code class="highlighter-rouge">statsmodle</code>, a package for statistics, which get Seasonal ARIMA upgrade at version 0.7 that make Python on par with R at time series. ARIMA has many parameters to tune, the way I am used to is first looking at the time series, partial autocorrelation and difference of time series, from those visualization I get a prior belief of the range the parameters should likely to be and put them into model selection to automate parameters selection. For more thorough introduction to ARIMA, I recommend Rob J. Hyndman’s book - <em>Forecasting: principles and practice</em><sup id="fnref:1"><a href="#fn:1" class="footnote">1</a></sup>.</p>
 
-<p style="color:black; font-size: 110%; text-align: center;"><img src="http://www.elasticmining.com/post/2016-01-02/img/blog/wayne/arima.png" alt="arima" />
+<p style="color:black; font-size: 110%; text-align: center;"><img src="http://www.elasticmining.com/img/blog/wayne/arima.png" alt="arima" />
 The prediction of ARIMA to store 6.</p>
 
 <hr />
@@ -41,13 +41,13 @@ The prediction of ARIMA to store 6.</p>
 <p><em>Sinusoid features</em><sup id="fnref:2"><a href="#fn:2" class="footnote">3</a></sup>: $sin(2πkt/m)$ and $cos(2πkt/m)$ for multiple frequency $k$ and period $m$.<br />
 After adding it we can make periodic pattern more notable to the model. That is important to some of stores, for example:</p>
 
-<p style="color:black; font-size: 110%; text-align: center;"><img src="http://www.elasticmining.com/post/2016-01-02/img/blog/wayne/periodic_store.png" alt="periodic" />
+<p style="color:black; font-size: 110%; text-align: center;"><img src="http://www.elasticmining.com/img/blog/wayne/periodic_store.png" alt="periodic" />
 this store has salient periodic pattern.</p>
 
 <p><em>Past event features</em>: statistics about last weeks.
 this one is inspired from a visualization of time series, where I spot the refurbishment effect – before or after refurbishment it has abnormal sales, seems like a closing-down sales. Given this I add a feature about whether refurbishment happens or not and how long the time has passed since that event.</p>
 
-<p style="color:black; font-size: 110%; text-align: center;"><img src="http://www.elasticmining.com/post/2016-01-02/img/blog/wayne/refurbish.png" alt="refurbish" />
+<p style="color:black; font-size: 110%; text-align: center;"><img src="http://www.elasticmining.com/img/blog/wayne/refurbish.png" alt="refurbish" />
 The long state of zero sales is in fact a refurbishment. The surge of sale after refurbishment seems like a special sale event for reopening.</p>
 
 <h4 id="validation">validation</h4>
