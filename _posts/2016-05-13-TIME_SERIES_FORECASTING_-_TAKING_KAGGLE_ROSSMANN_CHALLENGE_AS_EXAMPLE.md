@@ -1,9 +1,9 @@
-﻿---
+---
 layout: post
 title: TIME_SERIES_FORECASTING_-_TAKING_KAGGLE_ROSSMANN_CHALLENGE_AS_EXAMPLE
 date: 2016-05-13 08:50:25
-tags: 
-category: 
+tags: Machine_Learning
+category: Machine_Learning
 comments: true
 ---
 
