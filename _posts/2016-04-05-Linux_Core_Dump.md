@@ -2,8 +2,8 @@
 layout: post
 title: Linux_Core_Dump
 date: 2016-04-05 00:04:10
-tags: gdb
-category: gdb
+tags: GDB使用
+category: GDB使用
 comments: true
 ---
 
