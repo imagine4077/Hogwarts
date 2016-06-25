@@ -1,9 +1,9 @@
-﻿---
+---
 layout: post
 title: Promiscuous_vs._Monitor_Mode_(Wireless_Context)
 date: 2016-06-25 17:51:41
-tags: 
-category: 
+tags: wireless
+category: wireless
 comments: true
 ---
 
