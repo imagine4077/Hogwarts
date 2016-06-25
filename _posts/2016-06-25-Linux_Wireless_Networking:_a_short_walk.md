@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Linux Wireless Networking: a short walk
+title: "Linux Wireless Networking: a short walk"
 date: 2016-06-25 17:58:02
 tags: wireless
 category: wireless
