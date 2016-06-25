@@ -1,4 +1,4 @@
-﻿---
+---
 layout: post
 title: Linux_Wireless_Networking:_a_short_walk
 date: 2016-06-25 17:58:02
