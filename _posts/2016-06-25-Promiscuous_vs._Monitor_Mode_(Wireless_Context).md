@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Promiscuous_vs._Monitor_Mode_(Wireless_Context)
+title: "Promiscuous vs. Monitor Mode (Wireless Context)"
 date: 2016-06-25 17:51:41
 tags: wireless
 category: wireless
