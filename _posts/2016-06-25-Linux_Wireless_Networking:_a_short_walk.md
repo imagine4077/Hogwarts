@@ -8,6 +8,8 @@ comments: true
 ---
 
 
+reposted from :[https://www.linux.com/blog/linux-wireless-networking-short-walk](https://www.linux.com/blog/linux-wireless-networking-short-walk)
+
 <div class="panel-pane pane-node-title">
   
       
